@@ -1,0 +1,31 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomId": {
+        ".read": true,
+        
+        // Create: anyone. Update/delete: only master
+        ".write": "!data.exists() || data.child('masterUid').val() === auth.uid",
+        
+        "state": {
+          ".write": "root.child('rooms').child($roomId).child('masterUid').val() === auth.uid"
+        },
+        
+        "expiresAt": {
+          // Master can extend room TTL
+          ".write": "root.child('rooms').child($roomId).child('masterUid').val() === auth.uid"
+        },
+        
+        "viewers": {
+          "$viewerId": {
+            ".write": "$viewerId === auth.uid"
+          }
+        },
+        
+        "vmixCommands": {
+          ".write": "root.child('rooms').child($roomId).child('masterUid').val() === auth.uid"
+        }
+      }
+    }
+  }
+}
