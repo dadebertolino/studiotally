@@ -1,16 +1,50 @@
-// src/panels/TimerPanel.jsx
+// src/panels/TimerPanel.jsx — Show Clock + Stopwatch/Countdown
 import { useState } from "react";
-import { FF, PRESETS } from "../styles/constants.js";
+import { FF, PRESETS, fmt } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Card, TimerDigits } from "../components/UI.jsx";
 
-export function TimerPanel({ mode, setMode, running, ms, cdTotal, setCdTotal, displayMs, timerColor, status, doStart, doPause, doReset }) {
+export function TimerPanel({
+  // Show clock
+  showClock, onShowClockStart, onShowClockPause, onShowClockReset,
+  // Segment timer
+  mode, setMode, running, ms, cdTotal, setCdTotal, displayMs, timerColor, status,
+  doStart, doPause, doReset,
+}) {
   const [showCd, setShowCd] = useState(false);
   const [cM, setCM] = useState("");
   const [cS, setCS] = useState("");
 
+  const scMs = showClock?.running && showClock?.mst
+    ? (showClock.saved || 0) + (Date.now() - showClock.mst)
+    : (showClock?.saved || 0);
+  const scColor = showClock?.running ? "#8be9fd" : scMs > 0 ? "#ffb86c" : "#555";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+
+      {/* ── SHOW CLOCK ── */}
+      <div style={{ border: "1px solid #1a1a2e", borderRadius: "6px", padding: "12px", background: "#0c0c16" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+          <div style={{ fontFamily: FF, fontSize: "0.5rem", color: "#8be9fd", letterSpacing: "0.3em" }}>SHOW CLOCK</div>
+          <div style={{ fontFamily: FF, fontSize: "0.45rem", color: showClock?.running ? "#8be9fd" : "#555", letterSpacing: "0.15em" }}>
+            {showClock?.running ? "● LIVE" : scMs > 0 ? "⏸" : "STANDBY"}
+          </div>
+        </div>
+        <div style={{ textAlign: "center", margin: "4px 0 10px" }}>
+          <TimerDigits ms={scMs} color={scColor} size="small" />
+        </div>
+        <div style={{ display: "flex", gap: "6px", justifyContent: "center" }}>
+          {!showClock?.running
+            ? <Btn small color="#8be9fd" filled onClick={onShowClockStart}>{scMs > 0 ? "▶" : "▶ SHOW"}</Btn>
+            : <Btn small color="#ffb86c" onClick={onShowClockPause}>⏸</Btn>}
+          <Btn small color="#555" onClick={onShowClockReset}>↺</Btn>
+        </div>
+      </div>
+
+      {/* ── SEGMENT TIMER ── */}
+      <div style={{ fontFamily: FF, fontSize: "0.45rem", color: "#666", letterSpacing: "0.3em", textAlign: "center" }}>SEGMENT TIMER</div>
+
       {/* Mode selector */}
       <div style={{ display: "flex" }}>
         {["stopwatch", "countdown"].map(md => (
@@ -23,10 +57,8 @@ export function TimerPanel({ mode, setMode, running, ms, cdTotal, setCdTotal, di
         ))}
       </div>
 
-      {/* Status */}
       <div style={{ textAlign: "center", fontFamily: FF, color: timerColor, fontSize: "0.75rem", letterSpacing: "0.4em", animation: running ? "blink 2s infinite" : "none" }}>{status}</div>
 
-      {/* Timer display */}
       <div style={{
         border: `2px solid ${timerColor}22`, borderRadius: "8px", padding: "20px 10px",
         background: "#0a0a0f", boxShadow: `0 0 35px ${timerColor}0a`,
@@ -62,7 +94,6 @@ export function TimerPanel({ mode, setMode, running, ms, cdTotal, setCdTotal, di
         </>
       )}
 
-      {/* Controls */}
       <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
         {!running
           ? <Btn color="#50fa7b" filled onClick={doStart}>{ms > 0 ? t("master_resume") : t("master_start")}</Btn>
