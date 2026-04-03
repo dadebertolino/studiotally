@@ -50,7 +50,7 @@ export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack
   const handleLanConnect = () => {
     const ip = lanIp.trim();
     if (!ip) { setErr("Inserisci l'IP del bridge"); return; }
-    const wsUrl = ip.includes("://") ? ip : `ws://${ip}:9900`;
+    const wsUrl = ip.includes("://") ? ip : ip.includes(":") ? `ws://${ip}` : `ws://${ip}:9900`;
     try { localStorage.setItem("studiotally:activeRoom", JSON.stringify({ lan: true, wsUrl, role: lanRole })); } catch(e) {}
     onLanConnect(wsUrl, lanRole);
   };
