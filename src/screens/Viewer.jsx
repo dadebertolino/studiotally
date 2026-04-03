@@ -4,10 +4,14 @@ import { FF, TALLY, fmt } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Badge, TimerDigits } from "../components/UI.jsx";
 import { useFirebaseSync } from "../useFirebaseSync.js";
+import { useWebSocketSync } from "../useWebSocketSync.js";
 import { useWakeLock } from "../useWakeLock.js";
 
-export function Viewer({ roomCode, onLeave }) {
-  const { remote } = useFirebaseSync(roomCode, false);
+export function Viewer({ roomCode, syncMode = "cloud", wsUrl = "", onLeave }) {
+  const fbSync = useFirebaseSync(syncMode === "cloud" ? roomCode : null, false);
+  const wsSync = useWebSocketSync(syncMode === "lan" ? wsUrl : null, false);
+  const { remote } = syncMode === "lan" ? wsSync : fbSync;
+  const connected = syncMode === "lan" ? wsSync.connected : true;
   const [localMs, setLocalMs] = useState(0);
   const [showClockMs, setShowClockMs] = useState(0);
   const [viewMode, setViewMode] = useState(null);

@@ -23,9 +23,14 @@ public class BridgeForm : Form
     private AppState _state = AppState.Connect;
     private VmixClient? _vmix;
     private FirebaseClient? _firebase;
+    private WebSocketServer? _wsServer;
     private Dictionary<int, string?> _inputMapping = new();
     private bool _pushing;
     private List<VmixInput> _lastInputs = new();
+    private bool _lanMode;
+
+    // Current full state for LAN broadcast
+    private Dictionary<string, object> _fullState = new();
 
     // ── Panels ──
     private Panel pnlConnect = null!;
@@ -36,6 +41,8 @@ public class BridgeForm : Form
     private TextBox txtRoom = null!;
     private TextBox txtIp = null!;
     private NumericUpDown numPort = null!;
+    private CheckBox chkLan = null!;
+    private Panel pnlRoomRow = null!;
     private Button btnConnect = null!;
     private Label lblError = null!;
 
@@ -46,8 +53,9 @@ public class BridgeForm : Form
     private Button btnBackToConnect = null!;
 
     // Run
-    private Label lblRunRoom = null!;
+    private Label lblRunInfo = null!;
     private Label lblRunStatus = null!;
+    private Label lblLanInfo = null!;
     private FlowLayoutPanel pnlTallyGrid = null!;
     private ListBox lstLog = null!;
     private Panel pnlLogArea = null!;
@@ -65,7 +73,7 @@ public class BridgeForm : Form
     private void InitializeUI()
     {
         Text = "StudioTally Bridge";
-        ClientSize = new Size(460, 560);
+        ClientSize = new Size(460, 580);
         FormBorderStyle = FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
@@ -84,16 +92,36 @@ public class BridgeForm : Form
 
         // ═══ CONNECT ═══
         pnlConnect = new Panel { Dock = DockStyle.Fill, Visible = false };
-        var ci = new Panel { Width = 300, Height = 320 };
-        ci.Location = new Point(80, 50);
+        var ci = new Panel { Width = 300, Height = 380 };
+        ci.Location = new Point(80, 30);
 
         int y = 0;
-        ci.Controls.Add(new Label { Text = "STANZA", Font = FF_SMALL, ForeColor = TEXT_DIM, Location = new Point(0, y), AutoSize = true }); y += 18;
-        txtRoom = new TextBox { Location = new Point(0, y), Width = 300, BackColor = BG_INPUT, ForeColor = CYAN, Font = new Font("Consolas", 16f, FontStyle.Bold), BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Center, MaxLength = 5, CharacterCasing = CharacterCasing.Upper }; ci.Controls.Add(txtRoom); y += 50;
+
+        // LAN mode toggle
+        chkLan = new CheckBox
+        {
+            Text = "  MODALITÀ LAN (senza internet)", Font = FF_BOLD, ForeColor = AMBER,
+            Location = new Point(0, y), AutoSize = true,
+        };
+        chkLan.CheckedChanged += (s, e) =>
+        {
+            _lanMode = chkLan.Checked;
+            pnlRoomRow.Visible = !_lanMode;
+        };
+        ci.Controls.Add(chkLan); y += 32;
+
+        // Room (hidden in LAN mode)
+        pnlRoomRow = new Panel { Location = new Point(0, y), Width = 300, Height = 68 };
+        pnlRoomRow.Controls.Add(new Label { Text = "STANZA", Font = FF_SMALL, ForeColor = TEXT_DIM, Location = new Point(0, 0), AutoSize = true });
+        txtRoom = new TextBox { Location = new Point(0, 18), Width = 300, BackColor = BG_INPUT, ForeColor = CYAN, Font = new Font("Consolas", 16f, FontStyle.Bold), BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Center, MaxLength = 5, CharacterCasing = CharacterCasing.Upper };
+        pnlRoomRow.Controls.Add(txtRoom);
+        ci.Controls.Add(pnlRoomRow); y += 74;
+
         ci.Controls.Add(new Label { Text = "INDIRIZZO IP VMIX", Font = FF_SMALL, ForeColor = TEXT_DIM, Location = new Point(0, y), AutoSize = true }); y += 18;
         txtIp = new TextBox { Location = new Point(0, y), Width = 300, BackColor = BG_INPUT, ForeColor = TEXT, Font = FF_BOLD, BorderStyle = BorderStyle.FixedSingle, Text = "localhost" }; ci.Controls.Add(txtIp); y += 36;
-        ci.Controls.Add(new Label { Text = "PORTA", Font = FF_SMALL, ForeColor = TEXT_DIM, Location = new Point(0, y), AutoSize = true }); y += 18;
+        ci.Controls.Add(new Label { Text = "PORTA VMIX", Font = FF_SMALL, ForeColor = TEXT_DIM, Location = new Point(0, y), AutoSize = true }); y += 18;
         numPort = new NumericUpDown { Location = new Point(0, y), Width = 90, Minimum = 1, Maximum = 65535, Value = 8088, BackColor = BG_INPUT, ForeColor = TEXT, Font = FF_BOLD, BorderStyle = BorderStyle.FixedSingle }; ci.Controls.Add(numPort); y += 44;
+
         btnConnect = new Button { Text = "▶  CONNETTI", Location = new Point(0, y), Width = 300, Height = 44, FlatStyle = FlatStyle.Flat, Font = FF_BOLD, BackColor = Color.FromArgb(15, 40, 15), ForeColor = GREEN };
         btnConnect.FlatAppearance.BorderColor = GREEN;
         btnConnect.Click += BtnConnect_Click;
@@ -121,43 +149,31 @@ public class BridgeForm : Form
 
         // ═══ RUN ═══
         pnlRun = new Panel { Dock = DockStyle.Fill, Visible = false, Padding = new Padding(12, 8, 12, 8) };
+        var runHeader = new Panel { Dock = DockStyle.Top, Height = 50 };
+        lblRunInfo = new Label { Text = "", Font = FF_BOLD, ForeColor = CYAN, Location = new Point(0, 2), AutoSize = true };
+        lblRunStatus = new Label { Text = "● LIVE", Font = FF_BOLD, ForeColor = GREEN, Location = new Point(350, 2), AutoSize = true };
+        lblLanInfo = new Label { Text = "", Font = FF, ForeColor = AMBER, Location = new Point(0, 24), AutoSize = true };
+        runHeader.Controls.AddRange(new Control[] { lblRunInfo, lblRunStatus, lblLanInfo });
 
-        // Top: room + status
-        var runHeader = new Panel { Dock = DockStyle.Top, Height = 30 };
-        lblRunRoom = new Label { Text = "", Font = FF_BOLD, ForeColor = CYAN, Location = new Point(0, 4), AutoSize = true };
-        lblRunStatus = new Label { Text = "● LIVE", Font = FF_BOLD, ForeColor = GREEN, Location = new Point(340, 4), AutoSize = true };
-        runHeader.Controls.AddRange(new Control[] { lblRunRoom, lblRunStatus });
+        pnlTallyGrid = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.LeftToRight, BackColor = BG, Padding = new Padding(0, 4, 0, 4) };
 
-        // Tally grid — fills available space
-        pnlTallyGrid = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            AutoScroll = true,
-            FlowDirection = FlowDirection.LeftToRight,
-            BackColor = BG,
-            Padding = new Padding(0, 4, 0, 4),
-        };
-
-        // Bottom buttons
         var runBtnPanel = new Panel { Dock = DockStyle.Bottom, Height = 44 };
         btnStopRun = new Button { Text = "■  STOP", Width = 160, Height = 36, FlatStyle = FlatStyle.Flat, Font = FF_SMALL, BackColor = Color.FromArgb(30, 15, 15), ForeColor = RED, Location = new Point(0, 4) };
         btnStopRun.FlatAppearance.BorderColor = Color.FromArgb(80, 30, 30);
-        btnStopRun.Click += (s, e) => { _pushing = false; SwitchState(AppState.Mapping); };
+        btnStopRun.Click += (s, e) => { _pushing = false; _wsServer?.Stop(); SwitchState(AppState.Mapping); };
         btnToggleLog = new Button { Text = "LOG ▼", Width = 100, Height = 36, FlatStyle = FlatStyle.Flat, Font = FF_SMALL, BackColor = BG_CARD, ForeColor = TEXT_DIM, Location = new Point(170, 4) };
         btnToggleLog.FlatAppearance.BorderColor = BORDER;
         btnToggleLog.Click += (s, e) => ToggleLog();
         runBtnPanel.Controls.AddRange(new Control[] { btnStopRun, btnToggleLog });
 
-        // Log area — hidden by default
         pnlLogArea = new Panel { Dock = DockStyle.Bottom, Height = 0, Visible = false };
         lstLog = new ListBox { Dock = DockStyle.Fill, BackColor = BG_INPUT, ForeColor = TEXT_DIM, Font = FF_SMALL, BorderStyle = BorderStyle.FixedSingle, SelectionMode = SelectionMode.None };
         pnlLogArea.Controls.Add(lstLog);
 
-        // Add in correct order (bottom-up for Dock)
-        pnlRun.Controls.Add(pnlTallyGrid);    // Fill
-        pnlRun.Controls.Add(runHeader);         // Top
-        pnlRun.Controls.Add(pnlLogArea);        // Bottom (hidden)
-        pnlRun.Controls.Add(runBtnPanel);       // Bottom
+        pnlRun.Controls.Add(pnlTallyGrid);
+        pnlRun.Controls.Add(runHeader);
+        pnlRun.Controls.Add(pnlLogArea);
+        pnlRun.Controls.Add(runBtnPanel);
 
         // ═══ ASSEMBLY ═══
         Controls.Add(pnlConnect);
@@ -185,14 +201,43 @@ public class BridgeForm : Form
         if (state == AppState.Run)
         {
             _pushing = true;
-            lblRunRoom.Text = $"STANZA {txtRoom.Text.Trim().ToUpper()}";
             lstLog.Items.Clear();
+
+            if (_lanMode)
+            {
+                // Start WebSocket server
+                _wsServer = new WebSocketServer();
+                _wsServer.OnCommand += (func, parms) =>
+                {
+                    Log($"CMD ← {func} (LAN)");
+                    if (_vmix?.IsConnected == true)
+                        _ = _vmix.SendCommand(func, parms);
+                };
+                _wsServer.OnClientCountChanged += count =>
+                {
+                    BeginInvoke(() => lblRunStatus.Text = $"● LAN · {count} client");
+                };
+                _wsServer.OnLog += msg => Log(msg);
+                _wsServer.Start(9900);
+
+                var ips = WebSocketServer.GetLocalIPs();
+                var ipStr = ips.Count > 0 ? string.Join(", ", ips) : "localhost";
+                lblRunInfo.Text = "MODALITÀ LAN";
+                lblLanInfo.Text = $"ws://{ips.FirstOrDefault() ?? "localhost"}:9900";
+                Log($"LAN server avviato — connetti i telefoni a:");
+                Log($"  ws://{ips.FirstOrDefault() ?? "localhost"}:9900");
+            }
+            else
+            {
+                lblRunInfo.Text = $"STANZA {txtRoom.Text.Trim().ToUpper()}";
+                lblLanInfo.Text = "";
+            }
+
             Log("Tally attivo");
-            // Force immediate tally render with last known inputs
             if (_lastInputs.Count > 0)
             {
                 UpdateTallyGrid(_lastInputs);
-                PushMappedTally(_lastInputs);
+                PushState(_lastInputs);
             }
         }
     }
@@ -208,33 +253,53 @@ public class BridgeForm : Form
     // ── Connect ──
     private async void BtnConnect_Click(object? sender, EventArgs e)
     {
-        var room = txtRoom.Text.Trim().ToUpper();
         var ip = txtIp.Text.Trim();
         var port = (int)numPort.Value;
-        if (room.Length < 5) { lblError.Text = "Codice stanza: 5 caratteri"; return; }
+        _lanMode = chkLan.Checked;
+
         if (string.IsNullOrEmpty(ip)) { lblError.Text = "Inserisci IP vMix"; return; }
-        lblError.Text = ""; btnConnect.Enabled = false; btnConnect.Text = "CONNESSIONE...";
-        SaveSettings(room, ip, port);
-
-        _firebase = new FirebaseClient();
-        var fbOk = await _firebase.Connect(room);
-        if (!fbOk)
+        if (!_lanMode)
         {
-            lblError.Text = "Stanza non trovata"; btnConnect.Enabled = true; btnConnect.Text = "▶  CONNETTI";
-            _firebase.Dispose(); _firebase = null; return;
+            var room = txtRoom.Text.Trim().ToUpper();
+            if (room.Length < 5) { lblError.Text = "Codice stanza: 5 caratteri"; return; }
         }
-        _firebase.OnCommand += async (func, parms) => { Log($"CMD ← {func}"); if (_vmix?.IsConnected == true) await _vmix.SendCommand(func, parms); };
 
+        lblError.Text = ""; btnConnect.Enabled = false; btnConnect.Text = "CONNESSIONE...";
+        SaveSettings(txtRoom.Text.Trim().ToUpper(), ip, port, _lanMode);
+
+        // Firebase (only if not LAN mode)
+        if (!_lanMode)
+        {
+            var room = txtRoom.Text.Trim().ToUpper();
+            _firebase = new FirebaseClient();
+            var fbOk = await _firebase.Connect(room);
+            if (!fbOk)
+            {
+                lblError.Text = "Stanza non trovata"; btnConnect.Enabled = true; btnConnect.Text = "▶  CONNETTI";
+                _firebase.Dispose(); _firebase = null; return;
+            }
+            _firebase.OnCommand += async (func, parms) => { Log($"CMD ← {func}"); if (_vmix?.IsConnected == true) await _vmix.SendCommand(func, parms); };
+        }
+
+        // vMix
         _vmix = new VmixClient();
         var ready = new TaskCompletionSource<bool>();
         _vmix.OnInputsDiscovered += inputs => { BeginInvoke(() => BuildMappingUI(inputs)); ready.TrySetResult(true); };
         _vmix.OnTallyUpdate += inputs => { _lastInputs = inputs; BeginInvoke(() => HandleTallyUpdate(inputs)); };
-        _vmix.OnStatusChange += (ok, err) => { if (!ok) { BeginInvoke(() => { lblError.Text = $"vMix: {err}"; btnConnect.Enabled = true; btnConnect.Text = "▶  CONNETTI"; }); ready.TrySetResult(false); } };
+        _vmix.OnStatusChange += (ok, err) =>
+        {
+            if (!ok) { BeginInvoke(() => { lblError.Text = $"vMix: {err}"; btnConnect.Enabled = true; btnConnect.Text = "▶  CONNETTI"; }); ready.TrySetResult(false); }
+        };
         _vmix.Connect(ip, port);
 
         var success = await ready.Task;
         btnConnect.Enabled = true; btnConnect.Text = "▶  CONNETTI";
-        if (!success) { _vmix.Dispose(); _vmix = null; _firebase.Disconnect(); _firebase.Dispose(); _firebase = null; return; }
+        if (!success)
+        {
+            _vmix.Dispose(); _vmix = null;
+            _firebase?.Disconnect(); _firebase?.Dispose(); _firebase = null;
+            return;
+        }
         SwitchState(AppState.Mapping);
     }
 
@@ -268,62 +333,10 @@ public class BridgeForm : Form
     private void HandleTallyUpdate(List<VmixInput> inputs)
     {
         if (_state == AppState.Run) UpdateTallyGrid(inputs);
-        if (_pushing && _firebase?.IsConnected == true) PushMappedTally(inputs);
+        if (_pushing) PushState(inputs);
     }
 
-    private void UpdateTallyGrid(List<VmixInput> inputs)
-    {
-        pnlTallyGrid.SuspendLayout();
-        pnlTallyGrid.Controls.Clear();
-
-        foreach (var input in inputs)
-        {
-            var mapped = _inputMapping.GetValueOrDefault(input.Number);
-            if (mapped == null) continue;
-
-            var isPgm = input.TallyState == "program";
-            var isPvw = input.TallyState == "preview";
-            var camLabel = mapped.ToUpper().Replace("CAM", "CAM ");
-
-            var card = new Panel
-            {
-                Width = 205, Height = 62,
-                BackColor = isPgm ? Color.FromArgb(130, 10, 10) : isPvw ? Color.FromArgb(8, 50, 8) : Color.FromArgb(18, 18, 28),
-                Margin = new Padding(3),
-            };
-
-            // Camera name (mapped) — large
-            card.Controls.Add(new Label
-            {
-                Text = camLabel,
-                Font = FF_BOLD, ForeColor = isPgm ? Color.White : isPvw ? Color.FromArgb(180, 255, 180) : TEXT_DIM,
-                Location = new Point(6, 4), AutoSize = true,
-            });
-
-            // vMix input name — small
-            card.Controls.Add(new Label
-            {
-                Text = input.Title,
-                Font = FF_SMALL, ForeColor = isPgm ? Color.FromArgb(255, 200, 200) : isPvw ? Color.FromArgb(180, 230, 180) : TEXT_DIM,
-                Location = new Point(6, 24), Width = 193, AutoEllipsis = true,
-            });
-
-            // Status
-            card.Controls.Add(new Label
-            {
-                Text = isPgm ? "● PROGRAM" : isPvw ? "● PREVIEW" : "OFF",
-                Font = FF_BOLD,
-                ForeColor = isPgm ? RED : isPvw ? GREEN : TEXT_DIM,
-                Location = new Point(6, 42), AutoSize = true,
-            });
-
-            pnlTallyGrid.Controls.Add(card);
-        }
-
-        pnlTallyGrid.ResumeLayout(true);
-    }
-
-    private async void PushMappedTally(List<VmixInput> inputs)
+    private void PushState(List<VmixInput> inputs)
     {
         var tallies = new Dictionary<string, string>();
         var camNames = new Dictionary<string, string>();
@@ -334,8 +347,47 @@ public class BridgeForm : Form
             tallies[mapped] = input.TallyState;
             camNames[mapped] = input.Title;
         }
-        if (tallies.Count > 0 && _firebase?.IsConnected == true)
-            await _firebase.WriteTally(tallies, camNames);
+        if (tallies.Count == 0) return;
+
+        // Push to Firebase (cloud mode)
+        if (_firebase?.IsConnected == true)
+            _ = _firebase.WriteTally(tallies, camNames);
+
+        // Broadcast to LAN clients
+        if (_wsServer?.IsRunning == true)
+        {
+            // Build full state for LAN clients
+            _fullState["tallies"] = tallies;
+            _fullState["camNames"] = camNames;
+            _fullState["_bridge"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            _wsServer.BroadcastState(_fullState);
+        }
+    }
+
+    /// <summary>Called by Master PWA (via LAN WebSocket) to update timers/messages</summary>
+    public void UpdateFullState(string key, object value)
+    {
+        _fullState[key] = value;
+    }
+
+    private void UpdateTallyGrid(List<VmixInput> inputs)
+    {
+        pnlTallyGrid.SuspendLayout();
+        pnlTallyGrid.Controls.Clear();
+        foreach (var input in inputs)
+        {
+            var mapped = _inputMapping.GetValueOrDefault(input.Number);
+            if (mapped == null) continue;
+            var isPgm = input.TallyState == "program";
+            var isPvw = input.TallyState == "preview";
+            var camLabel = mapped.ToUpper().Replace("CAM", "CAM ");
+            var card = new Panel { Width = 205, Height = 62, BackColor = isPgm ? Color.FromArgb(130, 10, 10) : isPvw ? Color.FromArgb(8, 50, 8) : Color.FromArgb(18, 18, 28), Margin = new Padding(3) };
+            card.Controls.Add(new Label { Text = camLabel, Font = FF_BOLD, ForeColor = isPgm ? Color.White : isPvw ? Color.FromArgb(180, 255, 180) : TEXT_DIM, Location = new Point(6, 4), AutoSize = true });
+            card.Controls.Add(new Label { Text = input.Title, Font = FF_SMALL, ForeColor = isPgm ? Color.FromArgb(255, 200, 200) : isPvw ? Color.FromArgb(180, 230, 180) : TEXT_DIM, Location = new Point(6, 24), Width = 193, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = isPgm ? "● PROGRAM" : isPvw ? "● PREVIEW" : "OFF", Font = FF_BOLD, ForeColor = isPgm ? RED : isPvw ? GREEN : TEXT_DIM, Location = new Point(6, 42), AutoSize = true });
+            pnlTallyGrid.Controls.Add(card);
+        }
+        pnlTallyGrid.ResumeLayout(true);
     }
 
     private void DisconnectAll()
@@ -343,17 +395,30 @@ public class BridgeForm : Form
         _pushing = false;
         _vmix?.Disconnect(); _vmix?.Dispose(); _vmix = null;
         _firebase?.Disconnect(); _firebase?.Dispose(); _firebase = null;
-        _inputMapping.Clear(); _lastInputs.Clear();
+        _wsServer?.Stop(); _wsServer?.Dispose(); _wsServer = null;
+        _inputMapping.Clear(); _lastInputs.Clear(); _fullState.Clear();
         pnlMappingScroll.Controls.Clear();
         pnlTallyGrid.Controls.Clear();
     }
 
     // ── Settings ──
     private string SettingsPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "bridge_settings.txt");
-    private void SaveSettings(string room, string ip, int port) { try { File.WriteAllLines(SettingsPath, new[] { room, ip, port.ToString() }); } catch { } }
+    private void SaveSettings(string room, string ip, int port, bool lan)
+    {
+        try { File.WriteAllLines(SettingsPath, new[] { room, ip, port.ToString(), lan ? "1" : "0" }); } catch { }
+    }
     private void LoadSettings()
     {
-        try { if (!File.Exists(SettingsPath)) return; var l = File.ReadAllLines(SettingsPath); if (l.Length >= 1) txtRoom.Text = l[0]; if (l.Length >= 2) txtIp.Text = l[1]; if (l.Length >= 3 && int.TryParse(l[2], out var p)) numPort.Value = p; } catch { }
+        try
+        {
+            if (!File.Exists(SettingsPath)) return;
+            var l = File.ReadAllLines(SettingsPath);
+            if (l.Length >= 1) txtRoom.Text = l[0];
+            if (l.Length >= 2) txtIp.Text = l[1];
+            if (l.Length >= 3 && int.TryParse(l[2], out var p)) numPort.Value = p;
+            if (l.Length >= 4 && l[3] == "1") chkLan.Checked = true;
+        }
+        catch { }
     }
 
     // ── About ──
@@ -368,7 +433,7 @@ public class BridgeForm : Form
         var lnk = new LinkLabel { Text = "www.studiotally.com", Font = FF, LinkColor = CYAN, ActiveLinkColor = GREEN, TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Top, Height = 28 };
         lnk.LinkClicked += (s, e) => { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.studiotally.com") { UseShellExecute = true }); } catch { } };
         dlg.Controls.Add(lnk);
-        dlg.Controls.Add(new Label { Text = "Bridge vMix per StudioTally\nTally · Timer · Messaggistica", Font = FF_SMALL, ForeColor = TEXT_DIM, TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Top, Height = 40 });
+        dlg.Controls.Add(new Label { Text = "Bridge vMix per StudioTally\nTally · Timer · Messaggistica\nCloud + LAN", Font = FF_SMALL, ForeColor = TEXT_DIM, TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Top, Height = 48 });
         dlg.Controls.Add(new Label { Text = $"Versione {verStr}", Font = FF, ForeColor = TEXT_DIM, TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Top, Height = 24 });
         dlg.Controls.Add(new Label { Text = "STUDIOTALLY BRIDGE", Font = FF_TITLE, ForeColor = GREEN, TextAlign = ContentAlignment.MiddleCenter, Dock = DockStyle.Top, Height = 40, Padding = new Padding(0, 10, 0, 0) });
         dlg.ShowDialog(this);

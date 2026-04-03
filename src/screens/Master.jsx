@@ -1,16 +1,17 @@
 // src/screens/Master.jsx — 2 tabs: STUDIO (unified) + BRIDGE
-// Bridge-aware: when .NET bridge writes tally, Master doesn't overwrite it
+// Supports Cloud (Firebase) and LAN (WebSocket) sync modes
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FF } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Badge } from "../components/UI.jsx";
 import { useFirebaseSync } from "../useFirebaseSync.js";
+import { useWebSocketSync } from "../useWebSocketSync.js";
 import { useWakeLock } from "../useWakeLock.js";
 import { StudioPanel } from "../panels/StudioPanel.jsx";
 import { BridgePanel } from "../panels/BridgePanel.jsx";
 import { getRoomMeta, extendRoom, destroyRoom, sendBridgeCommand } from "../firebase-config.js";
 
-export function Master({ roomCode, onLeave }) {
+export function Master({ roomCode, syncMode = "cloud", wsUrl = "", onLeave }) {
   const [mode, setMode] = useState("stopwatch");
   const [running, setRunning] = useState(false);
   const [ms, setMs] = useState(0);
@@ -52,7 +53,13 @@ export function Master({ roomCode, onLeave }) {
   const startRef = useRef(null);
   const savedRef = useRef(0);
   const tickRef = useRef(null);
-  const { write, remote, viewers } = useFirebaseSync(roomCode, true);
+
+  // Conditional sync: Cloud (Firebase) or LAN (WebSocket)
+  const fbSync = useFirebaseSync(syncMode === "cloud" ? roomCode : null, syncMode === "cloud");
+  const wsSync = useWebSocketSync(syncMode === "lan" ? wsUrl : null, true);
+  const sync = syncMode === "lan" ? wsSync : fbSync;
+  const { write, remote, viewers } = sync;
+  const connected = syncMode === "lan" ? wsSync.connected : true;
 
   // Detect .NET bridge: if remote has _bridge timestamp within last 3s
   useEffect(() => {
@@ -167,6 +174,7 @@ export function Master({ roomCode, onLeave }) {
           <Badge color="#50fa7b">{t("lobby_role_master")}</Badge>
           <span onClick={() => setShowRoomInfo(!showRoomInfo)} style={{ fontFamily: FF, color: "#8be9fd88", fontSize: "0.82rem", letterSpacing: "0.25em", cursor: "pointer" }}>{roomCode}</span>
           {roomMeta?.expiresAt && <span onClick={() => setShowRoomInfo(!showRoomInfo)} style={{ fontFamily: FF, color: "#666", fontSize: "0.45rem", cursor: "pointer" }}>{fmtRemaining(roomMeta.expiresAt)}</span>}
+          {syncMode === "lan" && <Badge color={connected ? "#ffb86c" : "#ff5555"}>{connected ? "LAN" : "LAN ✕"}</Badge>}
           {bridgeActive && <Badge color="#f1fa8c">BRIDGE</Badge>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -211,7 +219,10 @@ export function Master({ roomCode, onLeave }) {
             timerColor={timerColor} status={status} doStart={doStart} doPause={doPause} doReset={doReset}
             tallies={tallies} setTallies={setTallies} camNames={camNames} setCamNames={setCamNames}
             bridgeRef={bridgeRef} sendToBridge={sendToBridge} bridgeActive={bridgeActive}
-            onBridgeCommand={(func, params) => sendBridgeCommand(roomCode, func, params || {})}
+            onBridgeCommand={(func, params) => {
+              if (syncMode === "lan" && wsSync.sendCommand) wsSync.sendCommand(func, params || {});
+              else sendBridgeCommand(roomCode, func, params || {});
+            }}
             camTimers={camTimers} onCamTimerStart={onCamTimerStart} onCamTimerStop={onCamTimerStop}
             messages={messages} onSendMessage={onSendMessage} onClearMessage={onClearMessage}
           />

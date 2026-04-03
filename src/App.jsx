@@ -1,4 +1,4 @@
-// src/App.jsx — Slim router + global styles
+// src/App.jsx — Router + global styles — supports Cloud + LAN modes
 import { useState, useEffect } from "react";
 import { genCode } from "./styles/constants.js";
 import { ensureAuth, roomExists, getRoomMeta } from "./firebase-config.js";
@@ -7,38 +7,30 @@ import { Lobby } from "./screens/Lobby.jsx";
 import { Master } from "./screens/Master.jsx";
 import { Viewer } from "./screens/Viewer.jsx";
 
-// Save/load active room from localStorage
 function saveActiveRoom(code, role, expiresAt) {
   try { localStorage.setItem("studiotally:activeRoom", JSON.stringify({ code, role, expiresAt })); } catch(e) {}
-}
-function clearActiveRoom() {
-  try { localStorage.removeItem("studiotally:activeRoom"); } catch(e) {}
 }
 
 export default function App() {
   const [screen, setScreen] = useState("landing");
   const [room, setRoom] = useState("");
   const [role, setRole] = useState(null);
+  const [syncMode, setSyncMode] = useState("cloud"); // "cloud" | "lan"
+  const [wsUrl, setWsUrl] = useState("");
 
   useEffect(() => { ensureAuth().catch(() => {}); }, []);
 
   const handleCreate = async (ttlHours) => {
     const code = genCode();
-    // createRoom is called inside useFirebaseSync, but we need TTL
-    // Store TTL so Master can pass it to createRoom
-    setRoom(code);
-    setRole("master");
-    setScreen("room");
-    // Save for rejoin — expiresAt calculated from TTL
+    setRoom(code); setRole("master"); setSyncMode("cloud"); setScreen("room");
     saveActiveRoom(code, "master", Date.now() + ttlHours * 3600000);
-    // Store TTL temporarily for Master's createRoom call
     try { localStorage.setItem("studiotally:pendingTTL", String(ttlHours)); } catch(e) {}
   };
 
   const handleJoin = async (code) => {
     try {
       if (await roomExists(code)) {
-        setRoom(code); setRole("viewer"); setScreen("room");
+        setRoom(code); setRole("viewer"); setSyncMode("cloud"); setScreen("room");
         const meta = await getRoomMeta(code);
         saveActiveRoom(code, "viewer", meta?.expiresAt || Date.now() + 72 * 3600000);
         return true;
@@ -48,12 +40,15 @@ export default function App() {
   };
 
   const handleRejoin = (code, savedRole) => {
-    setRoom(code); setRole(savedRole); setScreen("room");
+    setRoom(code); setRole(savedRole); setSyncMode("cloud"); setScreen("room");
+  };
+
+  const handleLanConnect = (url, lanRole) => {
+    setWsUrl(url); setRole(lanRole); setSyncMode("lan"); setRoom("LAN"); setScreen("room");
   };
 
   const handleLeave = () => {
-    // Don't clear activeRoom — master can rejoin. Only clear on explicit destroy.
-    setScreen("lobby"); setRoom(""); setRole(null);
+    setScreen("lobby"); setRoom(""); setRole(null); setSyncMode("cloud"); setWsUrl("");
   };
 
   return (
@@ -81,9 +76,9 @@ export default function App() {
       `}</style>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "repeating-linear-gradient(0deg, transparent, transparent 3px, #00000006 3px, #00000006 4px)", pointerEvents: "none", zIndex: 200 }} />
       {screen === "landing" && <Landing onStart={() => setScreen("lobby")} />}
-      {screen === "lobby" && <Lobby onCreateRoom={handleCreate} onJoinRoom={handleJoin} onRejoin={handleRejoin} onBack={() => setScreen("landing")} />}
-      {screen === "room" && role === "master" && <Master roomCode={room} onLeave={handleLeave} />}
-      {screen === "room" && role === "viewer" && <Viewer roomCode={room} onLeave={handleLeave} />}
+      {screen === "lobby" && <Lobby onCreateRoom={handleCreate} onJoinRoom={handleJoin} onRejoin={handleRejoin} onLanConnect={handleLanConnect} onBack={() => setScreen("landing")} />}
+      {screen === "room" && role === "master" && <Master roomCode={room} syncMode={syncMode} wsUrl={wsUrl} onLeave={handleLeave} />}
+      {screen === "room" && role === "viewer" && <Viewer roomCode={room} syncMode={syncMode} wsUrl={wsUrl} onLeave={handleLeave} />}
     </div>
   );
 }
