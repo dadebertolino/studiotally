@@ -140,9 +140,9 @@ export function Viewer({ roomCode, onLeave }) {
       <div style={{
         minHeight: "100vh", background: isPgm ? "#1a0000" : isPvw ? "#001a00" : "#0a0a0f",
         display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        position: "relative", border: `4px solid ${fullColor}`, transition: "all 0.3s ease",
+        position: "relative", border: `2px solid ${fullColor}`, transition: "all 0.3s ease",
       }}>
-        <div className="safe-top" style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px" }}>
+        <div className="safe-top" style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 10px" }}>
           <Badge color="#8be9fd">{roomCode}</Badge>
           <button onClick={() => setViewMode(null)} style={{ padding: "6px 12px", border: "1px solid #ffffff22", borderRadius: "4px", background: "transparent", color: "#888", fontFamily: FF, fontSize: "0.55rem", cursor: "pointer", letterSpacing: "0.1em" }}>{t("viewer_change")}</button>
         </div>
@@ -177,7 +177,7 @@ export function Viewer({ roomCode, onLeave }) {
         {/* Bottom bar: show clock + segment timer */}
         <div style={{
           position: "absolute", bottom: "0", left: "0", right: "0",
-          padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
+          padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center",
           borderTop: `1px solid ${fullColor}22`, background: "#00000066",
         }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>

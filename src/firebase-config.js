@@ -169,9 +169,12 @@ export async function destroyRoom(code) {
 export function writeState(code, state) {
   const data = { ...state, _t: Date.now() };
   if (db) {
-    import('firebase/database').then(m => m.set(m.ref(db, `rooms/${code}/state`), data)).catch(() => {});
+    // Use update (merge) instead of set — so bridge tally fields aren't wiped
+    import('firebase/database').then(m => m.update(m.ref(db, `rooms/${code}/state`), data)).catch(() => {});
   } else {
-    _lSet(`rooms/${code}/state`, data);
+    // Local fallback: merge into existing
+    const existing = _lGet(`rooms/${code}/state`) || {};
+    _lSet(`rooms/${code}/state`, { ...existing, ...data });
   }
 }
 
@@ -234,9 +237,10 @@ export function onViewerCount(code, callback) {
   return setInterval(check, 3000);
 }
 
-// ─── VMIX COMMANDS ──────────────────────────────
-export async function sendVmixCommand(code, func, params = {}) {
+// ─── BRIDGE COMMANDS ─────────────────────────────
+// Master PWA → Firebase → Bridge .NET → vMix/ATEM
+export async function sendBridgeCommand(code, func, params = {}) {
   if (!db) return;
   const m = await import('firebase/database');
-  return m.set(m.ref(db, `rooms/${code}/vmixCommands/${Date.now()}`), { function: func, params, ts: Date.now() });
+  return m.set(m.ref(db, `rooms/${code}/bridgeCommands/${Date.now()}`), { function: func, params, ts: Date.now() });
 }
