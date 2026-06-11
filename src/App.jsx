@@ -6,6 +6,7 @@ import { Landing } from "./screens/Landing.jsx";
 import { Lobby } from "./screens/Lobby.jsx";
 import { Master } from "./screens/Master.jsx";
 import { Viewer } from "./screens/Viewer.jsx";
+import { About } from "./screens/About.jsx";
 
 function saveActiveRoom(code, role, expiresAt) {
   try { localStorage.setItem("studiotally:activeRoom", JSON.stringify({ code, role, expiresAt })); } catch(e) {}
@@ -75,7 +76,8 @@ export default function App() {
         ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#0a0a0f}::-webkit-scrollbar-thumb{background:#151522;border-radius:2px}
       `}</style>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "repeating-linear-gradient(0deg, transparent, transparent 3px, #00000006 3px, #00000006 4px)", pointerEvents: "none", zIndex: 200 }} />
-      {screen === "landing" && <Landing onStart={() => setScreen("lobby")} />}
+      {screen === "landing" && <Landing onStart={() => setScreen("lobby")} onAbout={() => setScreen("about")} />}
+      {screen === "about" && <About onBack={() => setScreen("landing")} />}
       {screen === "lobby" && <Lobby onCreateRoom={handleCreate} onJoinRoom={handleJoin} onRejoin={handleRejoin} onLanConnect={handleLanConnect} onBack={() => setScreen("landing")} />}
       {screen === "room" && role === "master" && <Master roomCode={room} syncMode={syncMode} wsUrl={wsUrl} onLeave={handleLeave} />}
       {screen === "room" && role === "viewer" && <Viewer roomCode={room} syncMode={syncMode} wsUrl={wsUrl} onLeave={handleLeave} />}

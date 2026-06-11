@@ -26,3 +26,7 @@ export const genCode = () => {
   const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join("");
 };
+
+// ── Versione app ──
+export const APP_VERSION = "2.0.0";      // tieni allineato a package.json
+export const BUILD_DATE = "2026-06-11";  // aggiorna ai rilasci

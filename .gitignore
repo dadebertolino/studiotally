@@ -4,3 +4,4 @@ dist/
 *.local
 vmix-bridge/firebase-service-account.json
 .vercel
+.DS_Store

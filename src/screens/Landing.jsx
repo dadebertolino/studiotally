@@ -4,7 +4,7 @@ import { FF } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn } from "../components/UI.jsx";
 
-export function Landing({ onStart }) {
+export function Landing({ onStart, onAbout }) {
   const [f, setF] = useState(0);
   useEffect(() => { setTimeout(() => setF(1), 50); }, []);
   return (

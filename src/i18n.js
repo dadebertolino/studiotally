@@ -16,6 +16,16 @@ const translations = {
     landing_feat4_d: "Any phone becomes a monitor",
     landing_start: "Start",
 
+    // About
+    about_title: "About",
+    about_system: "System",
+    about_version: "Version",
+    about_build: "Build",
+    about_backend: "Backend",
+    about_what: "What it is",
+    about_desc: "Timer, tally and gallery control for live productions, straight from the browser. Real-time sync between gallery and remote devices.",
+    about_links: "Links",
+
     // Lobby
     lobby_title: "ROOM",
     lobby_create: "CREATE ROOM",
@@ -110,6 +120,15 @@ const translations = {
   },
 
   it: {
+    // About
+    about_title: "Info",
+    about_system: "Sistema",
+    about_version: "Versione",
+    about_build: "Build",
+    about_backend: "Backend",
+    about_what: "Cos'è",
+    about_desc: "Timer, tally e controllo regia per produzioni live, direttamente dal browser. Sincronizzazione in tempo reale tra regia e dispositivi remoti.",
+    about_links: "Collegamenti",
     landing_title: "STUDIO",
     landing_subtitle: "TALLY",
     landing_feat1_t: "Timer Sincronizzato",
