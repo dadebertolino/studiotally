@@ -22,7 +22,7 @@ public class BridgeForm : Form
     private enum AppState { Connect, Mapping, Run }
     private AppState _state = AppState.Connect;
     private VmixClient? _vmix;
-    private FirebaseClient? _firebase;
+    private VpsClient? _firebase;
     private WebSocketServer? _wsServer;
     private Dictionary<int, string?> _inputMapping = new();
     private bool _pushing;
@@ -271,7 +271,7 @@ public class BridgeForm : Form
         if (!_lanMode)
         {
             var room = txtRoom.Text.Trim().ToUpper();
-            _firebase = new FirebaseClient();
+            _firebase = new VpsClient();
             var fbOk = await _firebase.Connect(room);
             if (!fbOk)
             {

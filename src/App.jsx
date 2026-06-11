@@ -1,7 +1,7 @@
 // src/App.jsx — Router + global styles — supports Cloud + LAN modes
 import { useState, useEffect } from "react";
 import { genCode } from "./styles/constants.js";
-import { ensureAuth, roomExists, getRoomMeta } from "./useVpsSync.js";
+import { ensureAuth, roomExists, getRoomMeta } from "./firebase-config.js";
 import { Landing } from "./screens/Landing.jsx";
 import { Lobby } from "./screens/Lobby.jsx";
 import { Master } from "./screens/Master.jsx";
@@ -53,20 +53,15 @@ export default function App() {
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0f", position: "relative" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0a0f", position: "relative", paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #0a0a0f; }
-        .safe-top {
-          padding-top: 44px;
-          padding-top: calc(env(safe-area-inset-top, 20px) + 8px);
-          padding-top: calc(constant(safe-area-inset-top, 20px) + 8px);
-        }
-        .safe-bottom {
-          padding-bottom: 20px;
-          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
-        }
+        /* La safe-area e' gestita dal contenitore radice (paddingTop/Bottom).
+           Qui solo un piccolo padding estetico fisso per gli header. */
+        .safe-top { padding-top: 8px; }
+        .safe-bottom { padding-bottom: 8px; }
         @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
         @keyframes pulse-border { 0%,100%{border-color:#ffb86c22} 50%{border-color:#ffb86c77} }
         @keyframes fadeSlide { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
@@ -76,6 +71,10 @@ export default function App() {
         ::-webkit-scrollbar{width:3px}::-webkit-scrollbar-track{background:#0a0a0f}::-webkit-scrollbar-thumb{background:#151522;border-radius:2px}
       `}</style>
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "repeating-linear-gradient(0deg, transparent, transparent 3px, #00000006 3px, #00000006 4px)", pointerEvents: "none", zIndex: 200 }} />
+      {/* Cornice TOP — copre la zona status bar (notch/Dynamic Island) */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 250, height: "env(safe-area-inset-top, 0px)", minHeight: "env(safe-area-inset-top, 0px)", background: "#0a0a0f", borderBottom: "1px solid #1a1a2e", pointerEvents: "none" }} />
+      {/* Cornice BOTTOM — zona home indicator */}
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 250, height: "env(safe-area-inset-bottom, 0px)", minHeight: "env(safe-area-inset-bottom, 0px)", background: "#0a0a0f", borderTop: "1px solid #1a1a2e", pointerEvents: "none" }} />
       {screen === "landing" && <Landing onStart={() => setScreen("lobby")} onAbout={() => setScreen("about")} />}
       {screen === "about" && <About onBack={() => setScreen("landing")} />}
       {screen === "lobby" && <Lobby onCreateRoom={handleCreate} onJoinRoom={handleJoin} onRejoin={handleRejoin} onLanConnect={handleLanConnect} onBack={() => setScreen("landing")} />}
