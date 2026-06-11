@@ -33,6 +33,11 @@ export function Landing({ onStart, onAbout }) {
         ))}
       </div>
       <Btn color="#50fa7b" filled onClick={onStart} style={{ padding: "14px 44px", fontSize: "0.9rem" }}>{t("landing_start")}</Btn>
+      <button onClick={onAbout} style={{
+  marginTop: "20px", background: "transparent", border: "none",
+  fontFamily: FF, color: "#3a3a4a", fontSize: "0.55rem",
+  letterSpacing: "0.3em", cursor: "pointer", textTransform: "uppercase",
+}}>{t("about_title")} · v2.0.0</button>
     </div>
   );
 }
