@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { FF } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Badge, Card, Label } from "../components/UI.jsx";
-import { ROOM_TTL_PRESETS, DEFAULT_TTL_HOURS, getRoomMeta } from "../firebase-config.js";
+import { ROOM_TTL_PRESETS, DEFAULT_TTL_HOURS, getRoomMeta } from "../useVpsSync.js";
 
 export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack }) {
   const [code, setCode] = useState("");

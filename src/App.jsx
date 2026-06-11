@@ -1,7 +1,7 @@
 // src/App.jsx — Router + global styles — supports Cloud + LAN modes
 import { useState, useEffect } from "react";
 import { genCode } from "./styles/constants.js";
-import { ensureAuth, roomExists, getRoomMeta } from "./firebase-config.js";
+import { ensureAuth, roomExists, getRoomMeta } from "./useVpsSync.js";
 import { Landing } from "./screens/Landing.jsx";
 import { Lobby } from "./screens/Lobby.jsx";
 import { Master } from "./screens/Master.jsx";

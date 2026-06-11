@@ -4,12 +4,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { FF } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Badge } from "../components/UI.jsx";
-import { useFirebaseSync } from "../useFirebaseSync.js";
+import { useVpsSync as useFirebaseSync } from "../useVpsSync.js";
 import { useWebSocketSync } from "../useWebSocketSync.js";
 import { useWakeLock } from "../useWakeLock.js";
 import { StudioPanel } from "../panels/StudioPanel.jsx";
 import { BridgePanel } from "../panels/BridgePanel.jsx";
-import { getRoomMeta, extendRoom, destroyRoom, sendBridgeCommand } from "../firebase-config.js";
+import { getRoomMeta, extendRoom, destroyRoom, sendBridgeCommand } from "../useVpsSync.js";
 
 export function Master({ roomCode, syncMode = "cloud", wsUrl = "", onLeave }) {
   const [mode, setMode] = useState("stopwatch");

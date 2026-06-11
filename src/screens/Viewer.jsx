@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { FF, TALLY, fmt } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Badge, TimerDigits } from "../components/UI.jsx";
-import { useFirebaseSync } from "../useFirebaseSync.js";
+import { useVpsSync as useFirebaseSync } from "../useVpsSync.js";
 import { useWebSocketSync } from "../useWebSocketSync.js";
 import { useWakeLock } from "../useWakeLock.js";
 
