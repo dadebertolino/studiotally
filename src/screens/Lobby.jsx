@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { FF } from "../styles/constants.js";
 import { t } from "../i18n.js";
-import { Btn, Badge, Card, Label } from "../components/UI.jsx";
+import { Btn, Badge, Card, Label, BackButton } from "../components/UI.jsx";
 import { ROOM_TTL_PRESETS, DEFAULT_TTL_HOURS, getRoomMeta } from "../useVpsSync.js";
 
 export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack }) {
@@ -56,10 +56,8 @@ export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack
   };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", gap: "14px" }}>
-      <div className="safe-top" style={{ position: "absolute", top: "0", left: "12px" }}>
-        <Btn small color="#333" onClick={onBack}>←</Btn>
-      </div>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", paddingTop: "64px", gap: "14px" }}>
+      <BackButton onClick={onBack} />
       <div style={{ fontFamily: FF, color: "#eee", fontSize: "1rem", letterSpacing: "0.2em" }}>{t("lobby_title")}</div>
 
       {/* ── REJOIN ── */}

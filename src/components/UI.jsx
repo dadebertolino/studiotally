@@ -14,6 +14,31 @@ export function Btn({ children, color = "#888", filled, onClick, disabled, small
   );
 }
 
+// BackButton — pulsante "indietro" riquadrato, sempre visibile sopra la cornice safe-area.
+// Posizionato fixed in alto a sinistra, appena sotto la zona status bar.
+export function BackButton({ onClick, color = "#8be9fd", label = "←" }) {
+  return (
+    <button onClick={onClick} style={{
+      position: "fixed",
+      top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+      left: "12px",
+      zIndex: 300,
+      width: "42px", height: "42px",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      border: `1.5px solid ${color}55`,
+      background: "#0c0c14ee",
+      backdropFilter: "blur(4px)",
+      WebkitBackdropFilter: "blur(4px)",
+      color: color,
+      fontFamily: FF, fontSize: "1.1rem", lineHeight: 1,
+      borderRadius: "8px", cursor: "pointer",
+      boxShadow: `0 2px 12px #00000066, 0 0 0 1px ${color}11`,
+      WebkitTapHighlightColor: "transparent",
+      transition: "all 0.12s",
+    }}>{label}</button>
+  );
+}
+
 export function Badge({ children, color }) {
   return <span style={{ fontFamily: FF, fontSize: "0.48rem", letterSpacing: "0.2em", color, border: `1px solid ${color}44`, borderRadius: "3px", padding: "2px 7px", background: color + "0c" }}>{children}</span>;
 }
