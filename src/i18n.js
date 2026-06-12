@@ -35,6 +35,10 @@ const translations = {
     lobby_join_placeholder: "CODE",
     lobby_join_btn: "Join",
     lobby_not_found: "Room not found",
+    lobby_pin_label: "Director PIN (optional)",
+    lobby_pin_placeholder: "No PIN = open director access",
+    lobby_pin_enter: "Director PIN",
+    lobby_pin_wrong: "Wrong director PIN",
     lobby_role_master: "DIRECTOR",
     lobby_role_viewer: "VIEWER",
 
@@ -149,6 +153,10 @@ const translations = {
     lobby_join_placeholder: "CODICE",
     lobby_join_btn: "Entra",
     lobby_not_found: "Stanza non trovata",
+    lobby_pin_label: "PIN regia (opzionale)",
+    lobby_pin_placeholder: "Nessun PIN = regia libera",
+    lobby_pin_enter: "PIN regia",
+    lobby_pin_wrong: "PIN regia errato",
     lobby_role_master: "REGIA",
     lobby_role_viewer: "VIEWER",
 

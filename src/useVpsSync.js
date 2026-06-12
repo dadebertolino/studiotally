@@ -91,10 +91,15 @@ export function useVpsSync(roomCode, isMaster) {
           const pending = localStorage.getItem('studiotally:pendingTTL');
           if (pending) { ttl = parseInt(pending) || 72; localStorage.removeItem('studiotally:pendingTTL'); }
         } catch (e) {}
+        let pin = null;
+        try {
+          const pp = localStorage.getItem('studiotally:pendingPin');
+          if (pp) { pin = pp; localStorage.removeItem('studiotally:pendingPin'); }
+        } catch (e) {}
         try {
           await fetch(`${HTTP_URL}/room`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code: roomCode, ttlHours: ttl }),
+            body: JSON.stringify({ code: roomCode, ttlHours: ttl, directorPin: pin }),
           });
         } catch (e) { console.error('[VPS] createRoom error', e); }
       }
@@ -110,7 +115,9 @@ export function useVpsSync(roomCode, isMaster) {
 
       ws.onopen = () => {
         if (!mountedRef.current) return;
-        ws.send(JSON.stringify({ type: 'join', code: roomCode, role: isMaster ? 'director' : 'camera' }));
+        let joinPin = '';
+        try { joinPin = localStorage.getItem('studiotally:joinPin') || ''; } catch (e) {}
+        ws.send(JSON.stringify({ type: 'join', code: roomCode, role: isMaster ? 'director' : 'camera', pin: joinPin }));
         syncClock(ws);
         setConnected(true);
       };
@@ -181,6 +188,17 @@ export const ROOM_TTL_PRESETS = [
   { label: '48h', hours: 48 }, { label: '72h', hours: 72 }, { label: '7d', hours: 168 },
 ];
 export const DEFAULT_TTL_HOURS = 72;
+
+export async function verifyPin(code, pin) {
+  try {
+    const r = await fetch(`${HTTP_URL}/room/${code}/verify-pin`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin: pin || '' }),
+    });
+    if (!r.ok) return { ok: false };
+    return await r.json(); // { ok, hasPin }
+  } catch (e) { return { ok: false }; }
+}
 
 export async function roomExists(code) {
   try { const r = await fetch(`${HTTP_URL}/room/${code}`); return r.ok && (await r.json()).exists; }

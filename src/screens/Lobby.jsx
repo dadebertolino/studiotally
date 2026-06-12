@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { FF } from "../styles/constants.js";
 import { t } from "../i18n.js";
 import { Btn, Badge, Card, Label, BackButton } from "../components/UI.jsx";
-import { ROOM_TTL_PRESETS, DEFAULT_TTL_HOURS, getRoomMeta } from "../useVpsSync.js";
+import { ROOM_TTL_PRESETS, DEFAULT_TTL_HOURS, getRoomMeta, verifyPin } from "../useVpsSync.js";
 
 export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack }) {
   const [code, setCode] = useState("");
@@ -13,6 +13,9 @@ export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack
   const [savedRoom, setSavedRoom] = useState(null);
   const [lanIp, setLanIp] = useState("");
   const [lanRole, setLanRole] = useState("viewer"); // "master" | "viewer"
+  const [createPin, setCreatePin] = useState(""); // PIN regia opzionale alla creazione
+  const [joinRole, setJoinRole] = useState("viewer"); // "viewer" | "master" — ruolo scelto per ENTRA
+  const [joinPin, setJoinPin] = useState(""); // PIN inserito per entrare come regia
 
   // Check for saved active room
   useEffect(() => {
@@ -104,7 +107,9 @@ export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack
             }}>{p.label}</button>
           ))}
         </div>
-        <Btn color="#50fa7b" filled block onClick={() => onCreateRoom(ttlHours)}>{t("lobby_create_btn")}</Btn>
+        <Label>{t("lobby_pin_label")}</Label>
+        <input value={createPin} onChange={e => setCreatePin(e.target.value.replace(/[^0-9]/g, "").slice(0, 6))} placeholder={t("lobby_pin_placeholder")} inputMode="numeric" style={{ width: "100%", padding: "10px", border: "1px solid #1a1a2e", background: "#08080e", color: "#50fa7b", fontFamily: FF, fontSize: "0.95rem", textAlign: "center", letterSpacing: "0.4em", outline: "none", borderRadius: "4px", marginBottom: "12px" }} />
+        <Btn color="#50fa7b" filled block onClick={() => onCreateRoom(ttlHours, createPin)}>{t("lobby_create_btn")}</Btn>
       </Card>
 
       {/* ── CLOUD: JOIN ── */}
@@ -113,11 +118,39 @@ export function Lobby({ onCreateRoom, onJoinRoom, onRejoin, onLanConnect, onBack
           <span style={{ fontFamily: FF, color: "#8be9fd", fontSize: "0.6rem", letterSpacing: "0.35em" }}>{t("lobby_join")}</span>
           <Badge color="#8be9fd">CLOUD</Badge>
         </div>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <input value={code} onChange={e => { setCode(e.target.value.toUpperCase().slice(0, 5)); setErr(""); }} placeholder={t("lobby_join_placeholder")} style={{ flex: 1, padding: "11px", border: "1px solid #1a1a2e", background: "#08080e", color: "#eee", fontFamily: FF, fontSize: "1rem", textAlign: "center", letterSpacing: "0.5em", outline: "none", borderRadius: "4px" }} />
-          <Btn color="#8be9fd" disabled={code.length < 5 || loading} onClick={async () => { setLoading(true); const ok = await onJoinRoom(code); setLoading(false); if (!ok) setErr(t("lobby_not_found")); }}>{t("lobby_join_btn")}</Btn>
+        <input value={code} onChange={e => { setCode(e.target.value.toUpperCase().slice(0, 5)); setErr(""); }} placeholder={t("lobby_join_placeholder")} style={{ width: "100%", padding: "11px", border: "1px solid #1a1a2e", background: "#08080e", color: "#eee", fontFamily: FF, fontSize: "1rem", textAlign: "center", letterSpacing: "0.5em", outline: "none", borderRadius: "4px", marginBottom: "10px" }} />
+        {/* Toggle ruolo: viewer | regia */}
+        <div style={{ display: "flex", gap: "6px", marginBottom: "10px" }}>
+          {["viewer", "master"].map(r => (
+            <button key={r} onClick={() => { setJoinRole(r); setErr(""); }} style={{
+              flex: 1, padding: "8px", border: `1px solid ${joinRole === r ? "#8be9fd66" : "#1a1a2e"}`,
+              background: joinRole === r ? "#8be9fd12" : "#08080e",
+              color: joinRole === r ? "#8be9fd" : "#666",
+              fontFamily: FF, fontSize: "0.65rem", borderRadius: "4px", cursor: "pointer",
+              textTransform: "uppercase", letterSpacing: "0.15em",
+            }}>{r === "master" ? t("lobby_role_master") : t("lobby_role_viewer")}</button>
+          ))}
         </div>
-        {err && <div style={{ fontFamily: FF, color: "#ff5555", fontSize: "0.65rem", marginTop: "6px" }}>{err}</div>}
+        {/* PIN: appare solo se scelgo Regia */}
+        {joinRole === "master" && (
+          <input value={joinPin} onChange={e => { setJoinPin(e.target.value.replace(/[^0-9]/g, "").slice(0, 6)); setErr(""); }} placeholder={t("lobby_pin_enter")} inputMode="numeric" style={{ width: "100%", padding: "10px", border: "1px solid #1a1a2e", background: "#08080e", color: "#8be9fd", fontFamily: FF, fontSize: "0.95rem", textAlign: "center", letterSpacing: "0.4em", outline: "none", borderRadius: "4px", marginBottom: "10px" }} />
+        )}
+        <Btn color="#8be9fd" filled block disabled={code.length < 5 || loading} onClick={async () => {
+          setLoading(true); setErr("");
+          // Se entra come regia, valida il PIN PRIMA di entrare
+          if (joinRole === "master") {
+            const res = await verifyPin(code, joinPin);
+            if (!res.ok) {
+              setLoading(false);
+              setErr(res.error === "not_found" ? t("lobby_not_found") : t("lobby_pin_wrong"));
+              return;
+            }
+          }
+          const ok = await onJoinRoom(code, joinRole, joinPin);
+          setLoading(false);
+          if (!ok) setErr(t("lobby_not_found"));
+        }}>{t("lobby_join_btn")}</Btn>
+        {err && <div style={{ fontFamily: FF, color: "#ff5555", fontSize: "0.65rem", marginTop: "8px", textAlign: "center" }}>{err}</div>}
       </Card>
 
       {/* ── LAN MODE ── */}

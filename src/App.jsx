@@ -21,21 +21,35 @@ export default function App() {
 
   useEffect(() => { ensureAuth().catch(() => {}); }, []);
 
-  const handleCreate = async (ttlHours) => {
+  const handleCreate = async (ttlHours, directorPin) => {
     const code = genCode();
+    try {
+      localStorage.setItem("studiotally:pendingTTL", String(ttlHours));
+      if (directorPin && directorPin.trim()) localStorage.setItem("studiotally:pendingPin", directorPin.trim());
+      else localStorage.removeItem("studiotally:pendingPin");
+      // chi crea entra come regia: nessun joinPin necessario (e' lui ad averlo impostato)
+      localStorage.removeItem("studiotally:joinPin");
+    } catch(e) {}
     setRoom(code); setRole("master"); setSyncMode("cloud"); setScreen("room");
     saveActiveRoom(code, "master", Date.now() + ttlHours * 3600000);
-    try { localStorage.setItem("studiotally:pendingTTL", String(ttlHours)); } catch(e) {}
   };
 
-  const handleJoin = async (code) => {
+  const handleJoin = async (code, chosenRole = "viewer", pin = "") => {
     try {
-      if (await roomExists(code)) {
+      if (!(await roomExists(code))) return false;
+      const meta = await getRoomMeta(code);
+      if (chosenRole === "master") {
+        // entra come regia: salva il pin per il join WebSocket
+        try { localStorage.setItem("studiotally:joinPin", pin || ""); } catch(e) {}
+        setRoom(code); setRole("master"); setSyncMode("cloud"); setScreen("room");
+        saveActiveRoom(code, "master", meta?.expiresAt || Date.now() + 72 * 3600000);
+      } else {
+        // viewer: nessun pin
+        try { localStorage.removeItem("studiotally:joinPin"); } catch(e) {}
         setRoom(code); setRole("viewer"); setSyncMode("cloud"); setScreen("room");
-        const meta = await getRoomMeta(code);
         saveActiveRoom(code, "viewer", meta?.expiresAt || Date.now() + 72 * 3600000);
-        return true;
       }
+      return true;
     } catch(e) {}
     return false;
   };
